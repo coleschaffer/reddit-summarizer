@@ -134,7 +134,7 @@ export async function POST(request: Request) {
     for (const submissionId of redditSubmissionIds) {
       try {
         console.log(` - Fetching submission ${submissionId}...`);
-        const submission: RedditSubmission = await r.getSubmission(submissionId).fetch();
+        const submission = await r.getSubmission(submissionId).fetch();
         const postLink = `https://reddit.com${submission.permalink || ''}`; // Construct link early
 
         if (!submission.comments || !Array.isArray(submission.comments) || submission.comments.length === 0) {
