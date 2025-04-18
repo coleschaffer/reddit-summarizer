@@ -134,7 +134,7 @@ export async function POST(request: Request) {
       try {
         console.log(` - Fetching submission ${submissionId}...`);
         // Use @ts-expect-error as preferred by ESLint rule
-        // @ts-expect-error 
+        // @ts-expect-error -- Snoowrap's fetch() return type causes intermittent build errors
         const submission = await r.getSubmission(submissionId).fetch();
 
         const postLink = `https://reddit.com${submission.permalink || ''}`; // Construct link early
