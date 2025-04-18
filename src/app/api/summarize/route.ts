@@ -3,21 +3,20 @@ import snoowrap from 'snoowrap';
 // import OpenAI from 'openai'; // Remove OpenAI import
 import Groq from 'groq-sdk'; // Import Groq SDK
 
-// --- Interfaces for expected data structures ---
+// --- Remove Unused Interfaces ---
+/*
 interface RedditComment {
     body: string;
     score: number;
-    // Add other comment properties if needed
 }
-
 interface RedditSubmission {
     id: string;
     title: string;
-    selftext?: string; // Optional for link posts
+    selftext?: string;
     permalink: string;
     comments: RedditComment[];
-    // Add other submission properties if needed
 }
+*/
 
 // Initialize Reddit client (snoowrap)
 const r = new snoowrap({
@@ -143,7 +142,7 @@ export async function POST(request: Request) {
         }
 
         const topComments = submission.comments
-          .sort((a: RedditComment, b: RedditComment) => (b.score || 0) - (a.score || 0))
+          .sort((a, b) => (b.score || 0) - (a.score || 0))
           .slice(0, MAX_COMMENTS_PER_POST);
 
         if (topComments.length === 0) {
@@ -151,7 +150,7 @@ export async function POST(request: Request) {
           continue;
         }
 
-        const commentsText = topComments.map((comment: RedditComment, index: number) => `${index + 1}. ${comment.body}`).join('\n');
+        const commentsText = topComments.map((comment, index) => `${index + 1}. ${comment.body}`).join('\n');
         const summaryPrompt = `Summarize the key advice or information from the following Reddit thread regarding the question "${question}". Focus ONLY on the aspects directly answering the question. If the thread is irrelevant to the question, please state that clearly (e.g., 'This thread is not relevant...').\n\nPost Title: ${submission.title}\nPost Body: ${submission.selftext || 'N/A'}\n\nTop Comments:\n${commentsText}\n\nSummary:`;
 
         console.log(`   - Generating initial summary using Groq...`);
