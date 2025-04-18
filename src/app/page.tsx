@@ -1,103 +1,124 @@
-import Image from "next/image";
+'use client' // Add this directive for handling client-side interactions
+
+import { useState } from 'react';
+import ReactMarkdown from 'react-markdown'; // Import react-markdown
+
+interface ResultData {
+  finalSummary?: string;
+  sources?: string[];
+  confidenceScore?: number;
+  error?: string;
+}
 
 export default function Home() {
-  return (
-    <div className="grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20 font-[family-name:var(--font-geist-sans)]">
-      <main className="flex flex-col gap-[32px] row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="list-inside list-decimal text-sm/6 text-center sm:text-left font-[family-name:var(--font-geist-mono)]">
-          <li className="mb-2 tracking-[-.01em]">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] px-1 py-0.5 rounded font-[family-name:var(--font-geist-mono)] font-semibold">
-              src/app/page.tsx
-            </code>
-            .
-          </li>
-          <li className="tracking-[-.01em]">
-            Save and see your changes instantly.
-          </li>
-        </ol>
+  const [question, setQuestion] = useState('');
+  const [results, setResults] = useState<ResultData | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
 
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:w-auto"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 w-full sm:w-auto md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
+  const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setIsLoading(true);
+    setResults(null);
+
+    try {
+      const response = await fetch('/api/summarize', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ question }),
+      });
+
+      const data: ResultData = await response.json();
+
+      if (!response.ok) {
+        // Use error message from API if available, otherwise use status text
+        throw new Error(data.error || response.statusText || `HTTP error! status: ${response.status}`);
+      }
+
+      setResults(data);
+    } catch (error: any) {
+      console.error("Failed to fetch summary:", error);
+      setResults({ error: error.message || 'Failed to get summary. Check console for details.' });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  return (
+    <main className="flex min-h-screen flex-col items-center justify-start p-12 bg-gray-50">
+      <h1 className="text-4xl font-bold mb-8 text-gray-800">What do you want help with?</h1>
+      <form onSubmit={handleSubmit} className="w-full max-w-lg mb-8">
+        <input
+          type="text"
+          value={question}
+          onChange={(e) => setQuestion(e.target.value)}
+          placeholder="Ask anything..."
+          required
+          className="w-full px-4 py-3 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-lg text-gray-700"
+        />
+        <button
+          type="submit"
+          disabled={isLoading}
+          className="mt-4 w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-6 rounded-md shadow transition duration-150 ease-in-out disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          {isLoading ? 'Getting answers...' : 'Submit'}
+        </button>
+      </form>
+
+      {/* Results Display Area */}
+      {isLoading && (
+        <div className="mt-8 text-center text-gray-600 animate-pulse">Loading...</div>
+      )}
+      
+      {results && !isLoading && (
+        <div className="w-full max-w-4xl mt-8 bg-white p-8 rounded-lg shadow-lg border border-gray-200">
+          {results.error ? (
+            <p className="text-red-600 font-medium">Error: {results.error}</p>
+          ) : results.finalSummary ? (
+            <>
+              {/* Confidence Score - Add margin bottom */}
+              {typeof results.confidenceScore === 'number' && (
+                <div className="mb-8 text-right"> {/* Increased margin */}
+                  <span className="inline-block bg-blue-100 text-blue-800 text-sm font-semibold px-4 py-1.5 rounded-full"> {/* Slightly larger padding */}
+                    Confidence: {results.confidenceScore}%
+                  </span>
+                </div>
+              )}
+
+              {/* Final Summary - Ensure text color is applied correctly, add spacing */}
+              <div className="prose prose-lg text-gray-800 max-w-none mb-8 space-y-4"> {/* Explicit text color, added bottom margin and space-y for paragraph spacing */}
+                 <ReactMarkdown>{results.finalSummary}</ReactMarkdown>
+              </div>
+
+              {/* Sources Section - Improve spacing and link appearance */}
+              {results.sources && results.sources.length > 0 && (
+                <div className="mt-8 pt-6 border-t border-gray-300"> {/* Increased top margin/padding and border thickness */}
+                  <strong className="block mb-3 text-base font-semibold text-blue-800">Sources:</strong> {/* Bolder, larger, more margin */}
+                  <ol className="list-decimal list-inside space-y-2"> {/* Increased spacing between items */}
+                    {results.sources.map((link, index) => (
+                      <li key={index} className="text-sm text-gray-600"> {/* Slightly muted color for links */}
+                        <a
+                          href={link}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-blue-600 hover:text-blue-800 hover:underline break-all" // Allow long URLs to break
+                          title={link}
+                        >
+                          {/* Optionally shorten displayed link if needed, but full URL is clear */}
+                           {link}
+                        </a>
+                      </li>
+                    ))}
+                  </ol>
+                </div>
+              )}
+            </>
+          ) : (
+            <p className="text-gray-600 text-center py-4">No relevant information found.</p> // Centered fallback text
+          )}
         </div>
-      </main>
-      <footer className="row-start-3 flex gap-[24px] flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
-          />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
-    </div>
+      )}
+    </main>
   );
 }
