@@ -155,7 +155,9 @@ export async function POST(request: Request) {
           continue;
         }
 
-        const commentsText = topComments.map((comment, index) => `${index + 1}. ${comment.body}`).join('\n');
+        // Explicitly type map parameter as any to satisfy noImplicitAny rule
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const commentsText = topComments.map((comment: any, index: number) => `${index + 1}. ${comment.body}`).join('\n');
         const summaryPrompt = `Summarize the key advice or information from the following Reddit thread regarding the question "${question}". Focus ONLY on the aspects directly answering the question. If the thread is irrelevant to the question, please state that clearly (e.g., 'This thread is not relevant...').\n\nPost Title: ${submission.title}\nPost Body: ${submission.selftext || 'N/A'}\n\nTop Comments:\n${commentsText}\n\nSummary:`;
 
         console.log(`   - Generating initial summary using Groq...`);
