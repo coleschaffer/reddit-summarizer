@@ -39,7 +39,9 @@ export default function Home() {
       setResults(data);
     } catch (error: any) {
       console.error("Failed to fetch summary:", error);
-      setResults({ error: error.message || 'Failed to get summary. Check console for details.' });
+      // Ensure error.message exists or provide a fallback string
+      const errorMessage = error instanceof Error ? error.message : 'Failed to get summary. Check console for details.';
+      setResults({ error: errorMessage });
     } finally {
       setIsLoading(false);
     }

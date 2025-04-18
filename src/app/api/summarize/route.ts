@@ -3,6 +3,22 @@ import snoowrap from 'snoowrap';
 // import OpenAI from 'openai'; // Remove OpenAI import
 import Groq from 'groq-sdk'; // Import Groq SDK
 
+// --- Interfaces for expected data structures ---
+interface RedditComment {
+    body: string;
+    score: number;
+    // Add other comment properties if needed
+}
+
+interface RedditSubmission {
+    id: string;
+    title: string;
+    selftext?: string; // Optional for link posts
+    permalink: string;
+    comments: RedditComment[];
+    // Add other submission properties if needed
+}
+
 // Initialize Reddit client (snoowrap)
 const r = new snoowrap({
   userAgent: 'Reddit-Summarizer-App/0.1 by ' + (process.env.REDDIT_USERNAME || 'UnknownUser'),
@@ -84,7 +100,7 @@ export async function POST(request: Request) {
 
         if (googleData.items && googleData.items.length > 0) {
             const foundIds = new Set<string>(); // Use Set to avoid duplicates
-            for (const item of googleData.items) {
+            for (const item: { link?: string } of googleData.items) {
                 if (item.link && item.link.includes('reddit.com')) {
                     const submissionId = extractRedditSubmissionId(item.link);
                     if (submissionId) {
@@ -102,8 +118,9 @@ export async function POST(request: Request) {
         console.log(`Found ${redditSubmissionIds.length} unique Reddit submission IDs via Google Search.`);
 
     } catch (error: any) {
+        const errorMessage = error instanceof Error ? error.message : 'Failed to perform Google search.';
         console.error("Error during Google Custom Search:", error);
-        return NextResponse.json({ error: error.message || 'Failed to perform Google search.' }, { status: 500 });
+        return NextResponse.json({ error: errorMessage }, { status: 500 });
     }
 
     if (redditSubmissionIds.length === 0) {
@@ -117,24 +134,24 @@ export async function POST(request: Request) {
     for (const submissionId of redditSubmissionIds) {
       try {
         console.log(` - Fetching submission ${submissionId}...`);
-        const submission: any = await r.getSubmission(submissionId).fetch();
+        const submission: RedditSubmission = await r.getSubmission(submissionId).fetch();
         const postLink = `https://reddit.com${submission.permalink || ''}`; // Construct link early
 
-        if (!submission.comments || !Array.isArray(submission.comments)) {
-          console.log(`   - Comments data missing or not an array.`);
+        if (!submission.comments || !Array.isArray(submission.comments) || submission.comments.length === 0) {
+          console.log(`   - Comments data missing, not an array, or empty.`);
           continue;
         }
 
         const topComments = submission.comments
-          .sort((a: any, b: any) => (b.score || 0) - (a.score || 0))
+          .sort((a: RedditComment, b: RedditComment) => (b.score || 0) - (a.score || 0))
           .slice(0, MAX_COMMENTS_PER_POST);
 
         if (topComments.length === 0) {
-          console.log(`   - No top comments found.`);
+          console.log(`   - No top comments found (possibly filtered out low-score/deleted).`);
           continue;
         }
 
-        const commentsText = topComments.map((comment: any, index: number) => `${index + 1}. ${comment.body}`).join('\n');
+        const commentsText = topComments.map((comment: RedditComment, index: number) => `${index + 1}. ${comment.body}`).join('\n');
         const summaryPrompt = `Summarize the key advice or information from the following Reddit thread regarding the question "${question}". Focus ONLY on the aspects directly answering the question. If the thread is irrelevant to the question, please state that clearly (e.g., 'This thread is not relevant...').\n\nPost Title: ${submission.title}\nPost Body: ${submission.selftext || 'N/A'}\n\nTop Comments:\n${commentsText}\n\nSummary:`;
 
         console.log(`   - Generating initial summary using Groq...`);
@@ -157,11 +174,18 @@ export async function POST(request: Request) {
           console.log(`   - Failed to generate initial summary for ${submissionId}.`);
         }
       } catch (error: any) {
-          if (error.statusCode === 401) { // Handle Reddit auth error during fetch
+          // Check if it's a snoowrap error with statusCode
+          let statusCode: number | undefined = undefined;
+          if (typeof error === 'object' && error !== null && 'statusCode' in error) {
+              statusCode = (error as { statusCode: number }).statusCode;
+          }
+
+          if (statusCode === 401) {
              console.error("Reddit authentication failed fetching submission. Check credentials.");
              return NextResponse.json({ error: 'Reddit authentication failed.' }, { status: 401 });
            } else {
-             console.error(` - Error processing submission ${submissionId}:`, error.message || error);
+             const errorMessage = error instanceof Error ? error.message : 'Unknown error processing submission.';
+             console.error(` - Error processing submission ${submissionId}:`, errorMessage, error);
            } 
       }
     }
@@ -210,8 +234,9 @@ Final Answer (in Markdown):`;
         finalSummaryText = finalCompletion.choices[0]?.message?.content?.trim() || 'Could not synthesize a final answer.';
         console.log("Final summary generated.");
     } catch (error: any) {
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error during synthesis.';
         console.error("Error during final summary synthesis:", error);
-        finalSummaryText = "Error occurred while synthesizing the final answer."; // Provide fallback
+        finalSummaryText = "Error occurred while synthesizing the final answer.";
     }
 
     // 5. Calculate Confidence Score
@@ -233,12 +258,13 @@ Final Answer (in Markdown):`;
     if (error instanceof SyntaxError) {
       errorMessage = 'Invalid JSON in request body.';
       statusCode = 400;
-    } else if (error.status) { // Try to get status from Groq error
-        errorMessage = `Groq API Error: ${error.message || 'Unknown API Error'}`;
-        statusCode = error.status;
-    } else if (error.statusCode) { // Fallback for Reddit error
-        errorMessage = `Reddit API Error: ${error.message || 'Unknown API Error'}`;
-        statusCode = error.statusCode;
+    } else {
+        // Try to infer status code from Groq/Reddit errors if possible
+        if (typeof error === 'object' && error !== null) {
+            if ('status' in error) statusCode = (error as { status: number }).status;
+            else if ('statusCode' in error) statusCode = (error as { statusCode: number }).statusCode;
+        }
+        if (error instanceof Error) errorMessage = error.message;
     }
 
     return NextResponse.json({ error: errorMessage }, { status: statusCode });
