@@ -117,7 +117,7 @@ export async function POST(request: Request) {
 
         console.log(`Found ${redditSubmissionIds.length} unique Reddit submission IDs via Google Search.`);
 
-    } catch (error: any) {
+    } catch (error) {
         const errorMessage = error instanceof Error ? error.message : 'Failed to perform Google search.';
         console.error("Error during Google Custom Search:", error);
         return NextResponse.json({ error: errorMessage }, { status: 500 });
@@ -173,7 +173,7 @@ export async function POST(request: Request) {
         } else {
           console.log(`   - Failed to generate initial summary for ${submissionId}.`);
         }
-      } catch (error: any) {
+      } catch (error) {
           // Check if it's a snoowrap error with statusCode
           let statusCode: number | undefined = undefined;
           if (typeof error === 'object' && error !== null && 'statusCode' in error) {
@@ -184,8 +184,8 @@ export async function POST(request: Request) {
              console.error("Reddit authentication failed fetching submission. Check credentials.");
              return NextResponse.json({ error: 'Reddit authentication failed.' }, { status: 401 });
            } else {
-             const errorMessage = error instanceof Error ? error.message : 'Unknown error processing submission.';
-             console.error(` - Error processing submission ${submissionId}:`, errorMessage, error);
+             const loopErrorMessage = error instanceof Error ? error.message : 'Unknown error processing submission.';
+             console.error(` - Error processing submission ${submissionId}:`, loopErrorMessage, error);
            } 
       }
     }
@@ -233,9 +233,9 @@ Final Answer (in Markdown):`;
         });
         finalSummaryText = finalCompletion.choices[0]?.message?.content?.trim() || 'Could not synthesize a final answer.';
         console.log("Final summary generated.");
-    } catch (error: any) {
-        const errorMessage = error instanceof Error ? error.message : 'Unknown error during synthesis.';
-        console.error("Error during final summary synthesis:", error);
+    } catch (error) {
+        const synthesisErrorMessage = error instanceof Error ? error.message : 'Unknown error during synthesis.';
+        console.error("Error during final summary synthesis:", synthesisErrorMessage, error);
         finalSummaryText = "Error occurred while synthesizing the final answer.";
     }
 
@@ -249,24 +249,23 @@ Final Answer (in Markdown):`;
         confidenceScore: confidenceScore
     });
 
-  } catch (error: any) {
-    // Catch broader errors (request parsing, unexpected issues)
+  } catch (error) {
     console.error('API Route Error:', error);
-    let errorMessage = 'Failed to process request.';
+    let outerErrorMessage = 'Failed to process request.';
     let statusCode = 500;
 
     if (error instanceof SyntaxError) {
-      errorMessage = 'Invalid JSON in request body.';
+      outerErrorMessage = 'Invalid JSON in request body.';
       statusCode = 400;
     } else {
         // Try to infer status code from Groq/Reddit errors if possible
         if (typeof error === 'object' && error !== null) {
-            if ('status' in error) statusCode = (error as { status: number }).status;
-            else if ('statusCode' in error) statusCode = (error as { statusCode: number }).statusCode;
+            if ('status' in error && typeof (error as { status: unknown }).status === 'number') statusCode = (error as { status: number }).status;
+            else if ('statusCode' in error && typeof (error as { statusCode: unknown }).statusCode === 'number') statusCode = (error as { statusCode: number }).statusCode;
         }
-        if (error instanceof Error) errorMessage = error.message;
+        if (error instanceof Error) outerErrorMessage = error.message;
     }
 
-    return NextResponse.json({ error: errorMessage }, { status: statusCode });
+    return NextResponse.json({ error: outerErrorMessage }, { status: statusCode });
   }
 } 

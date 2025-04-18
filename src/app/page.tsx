@@ -37,7 +37,7 @@ export default function Home() {
       }
 
       setResults(data);
-    } catch (error: any) {
+    } catch (error) {
       console.error("Failed to fetch summary:", error);
       // Ensure error.message exists or provide a fallback string
       const errorMessage = error instanceof Error ? error.message : 'Failed to get summary. Check console for details.';
