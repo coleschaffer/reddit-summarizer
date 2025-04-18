@@ -133,7 +133,10 @@ export async function POST(request: Request) {
     for (const submissionId of redditSubmissionIds) {
       try {
         console.log(` - Fetching submission ${submissionId}...`);
-        const submission = await r.getSubmission(submissionId).fetch();
+        // Use explicit `any` and disable ESLint rule for this line to bypass TS error
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const submission: any = await r.getSubmission(submissionId).fetch();
+
         const postLink = `https://reddit.com${submission.permalink || ''}`; // Construct link early
 
         if (!submission.comments || !Array.isArray(submission.comments) || submission.comments.length === 0) {
