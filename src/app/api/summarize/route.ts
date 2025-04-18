@@ -144,8 +144,10 @@ export async function POST(request: Request) {
           continue;
         }
 
+        // Explicitly type sort parameters as any to satisfy noImplicitAny rule
         const topComments = submission.comments
-          .sort((a, b) => (b.score || 0) - (a.score || 0))
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          .sort((a: any, b: any) => (b.score || 0) - (a.score || 0))
           .slice(0, MAX_COMMENTS_PER_POST);
 
         if (topComments.length === 0) {
