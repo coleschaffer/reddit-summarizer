@@ -99,9 +99,9 @@ export async function POST(request: Request) {
         }
 
         if (googleData.items && googleData.items.length > 0) {
-            const foundIds = new Set<string>(); // Use Set to avoid duplicates
-            for (const item: { link?: string } of googleData.items) {
-                if (item.link && item.link.includes('reddit.com')) {
+            const foundIds = new Set<string>();
+            for (const item of googleData.items) {
+                if (item && item.link && item.link.includes('reddit.com')) {
                     const submissionId = extractRedditSubmissionId(item.link);
                     if (submissionId) {
                         foundIds.add(submissionId);
