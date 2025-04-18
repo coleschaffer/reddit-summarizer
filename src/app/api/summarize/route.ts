@@ -133,8 +133,8 @@ export async function POST(request: Request) {
     for (const submissionId of redditSubmissionIds) {
       try {
         console.log(` - Fetching submission ${submissionId}...`);
-        // Use @ts-ignore to suppress persistent type error during build
-        // @ts-ignore 
+        // Use @ts-expect-error as preferred by ESLint rule
+        // @ts-expect-error 
         const submission = await r.getSubmission(submissionId).fetch();
 
         const postLink = `https://reddit.com${submission.permalink || ''}`; // Construct link early
